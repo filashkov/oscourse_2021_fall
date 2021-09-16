@@ -9,6 +9,16 @@
 #include "Bootloader.h"
 #include "VirtualMemory.h"
 
+/*enum {
+    CUSTOM_HORIZONTAL_RESOLUTION = 1920,
+    CUSTOM_VERTICAL_RESOLUTION = 1080
+};*/
+
+enum {
+    CUSTOM_HORIZONTAL_RESOLUTION = 200,
+    CUSTOM_VERTICAL_RESOLUTION = 100
+};
+
 VOID *
 AllocateLowRuntimePool (
   IN UINTN  Size
@@ -114,9 +124,48 @@ InitGraphics (
   // Hint: Use GetMode/SetMode functions.
   //
 
+  // See all supported resolutions:
+
+  int show_all_supported_resolutions = 0;
+
+  if (show_all_supported_resolutions) {
+    UINTN SizeOfInfo;
+    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *Info; // The Info buffer would be allocated by callee
+
+    for (int i = 0; i < GraphicsOutput->Mode->MaxMode; i++) {
+      int result = GraphicsOutput->QueryMode(GraphicsOutput, i, &SizeOfInfo, &Info);
+      if (result != EFI_SUCCESS) {
+        DEBUG((DEBUG_INFO, "Something wrong!\n"));
+      } else {
+        DEBUG((DEBUG_INFO, "| %d |", i));
+        DEBUG((DEBUG_INFO, " %u |", Info->HorizontalResolution));
+        DEBUG((DEBUG_INFO, " %u |\n", Info->VerticalResolution));
+        DEBUG((DEBUG_INFO, "-------------------\n"));
+      }
+    }
+
+    FreePool(Info);
+  }
+
+  /* Part of supported resolutions table:
+     ......................................
+            | 4 | 960  | 640 |
+            ------------------
+            | 5 | 1024 | 600 |
+            ------------------
+   Choice > | 6 | 1024 | 768 | < Choice
+            ------------------
+            | 7 | 1152 | 864 |
+            ------------------
+            | 8 | 1152 | 870 |
+     .......................................
+  */
+
+  GraphicsOutput->SetMode(GraphicsOutput, 6);
 
   //
   // Fill screen with black.
+  // Note: Blt ~ Block Transfer
   //
   GraphicsOutput->Blt (
     GraphicsOutput,
@@ -134,11 +183,14 @@ InitGraphics (
   //
   // Fill GPU properties.
   //
+
   LoaderParams->FrameBufferBase      = GraphicsOutput->Mode->FrameBufferBase;
   LoaderParams->FrameBufferSize      = GraphicsOutput->Mode->FrameBufferSize;
   LoaderParams->PixelsPerScanLine    = GraphicsOutput->Mode->Info->PixelsPerScanLine;
   LoaderParams->HorizontalResolution = GraphicsOutput->Mode->Info->HorizontalResolution;
   LoaderParams->VerticalResolution   = GraphicsOutput->Mode->Info->VerticalResolution;
+  LoaderParams->HorizontalResolution = CUSTOM_HORIZONTAL_RESOLUTION;
+  LoaderParams->VerticalResolution   = CUSTOM_VERTICAL_RESOLUTION;
 
   return EFI_SUCCESS;
 }
@@ -977,7 +1029,7 @@ UefiMain (
   UINTN              EntryPoint;
   VOID               *GateData;
 
-#if 1 ///< Uncomment to await debugging
+#if 0 ///< Uncomment to await debugging
   volatile BOOLEAN   Connected;
   DEBUG ((DEBUG_INFO, "JOS: Awaiting debugger connection\n"));
 
