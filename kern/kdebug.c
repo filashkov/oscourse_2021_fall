@@ -42,7 +42,7 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     /* Initialize *info */
     strcpy(info->rip_file, UNKNOWN);
     strcpy(info->rip_fn_name, UNKNOWN);
-    info->rip_fn_namelen = sizeof UNKNOWN - 1;
+    info->rip_fn_namelen = sizeof(UNKNOWN) - 1;
     info->rip_line = 0;
     info->rip_fn_addr = addr;
     info->rip_fn_narg = 0;
@@ -67,14 +67,36 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
 
     // LAB 2: Your res here:
 
+    const uintptr_t func_address = addr - 5;
+    int required_line_number = 0;
+    // Now we need to get line_offset
+    // We used file_name_by_info
+
+    res = line_for_address(&addrs, func_address, line_offset, &required_line_number);
+    if (res < 0) {
+        goto error;
+    }
+    info->rip_line = required_line_number;
+
     /* Find function name corresponding to given address.
     * Hint: note that we need the address of `call` instruction, but rip holds
     * address of the next instruction, so we should substract 5 from it.
-    * Hint: use function_by_info from kern/dwarf_lines.c
+    * Hint: use function_by_info from kern/dwarf_lines.c (dwarf.c)
     * Hint: info->rip_fn_name can be not NULL-terminated,
     * string returned by function_by_info will always be */
 
     // LAB 2: Your res here:
+
+    //int function_by_info(const struct Dwarf_Addrs *addrs, uintptr_t p, Dwarf_Off cu_offset, char **buf, uintptr_t *offset);
+
+    char *my_buf;
+
+    res = function_by_info(&addrs, func_address, offset, &my_buf, &info->rip_fn_addr);
+    if (res < 0) {
+        goto error;
+    }
+    strncpy(info->rip_fn_name, my_buf, sizeof(info->rip_file));
+    info->rip_fn_namelen = strnlen(info->rip_file, sizeof(info->rip_file));
 
 error:
     return res;
