@@ -196,7 +196,7 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
         if (sh[i].sh_type == ELF_SHT_SYMTAB) {
             struct Elf64_Sym *symtab = (struct Elf64_Sym *)(binary + sh[i].sh_offset);
 
-        size_t nsyms = sh[i].sh_size / sizeof(*symtab);
+            size_t nsyms = sh[i].sh_size / sizeof(*symtab);
 
             for (size_t j = 0; j < nsyms; j++) {
                 if (ELF64_ST_BIND(symtab[j].st_info) == STB_GLOBAL && ELF64_ST_TYPE(symtab[j].st_info) == STT_OBJECT
@@ -205,7 +205,6 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
                     uintptr_t addr = find_function(name);
 
                     if (addr && symtab[j].st_value >= image_start && symtab[j].st_value <= image_end) {
-                        //do this only if address to bind is within allocated segment
                         memcpy((void *)symtab[j].st_value, &addr, sizeof(void *));
                         // *(uintptr_t *)symtab[j].st_value = addr;
                     }

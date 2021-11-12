@@ -10,3 +10,21 @@ umain(int argc, char **argv) {
         sys_yield();
     }
 }
+
+
+/*
+int
+umain()
+{
+    asm volatile(
+        ".bss\n\t"
+            ".comm a, 1\n\t"
+            ".comm sys_yield, 8\n\t"
+
+        ".text\n\t"
+        :
+        :
+        :);
+    return 0;
+}
+*/
