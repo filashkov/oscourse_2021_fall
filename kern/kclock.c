@@ -65,18 +65,18 @@ void
 rtc_timer_init(void) {
     // LAB 4: Your code here
     // (use cmos_read8/cmos_write8)
-    nmi_disable();
-    outb(CMOS_CMD, RTC_BREG);
+    // nmi_disable();
+    // outb(CMOS_CMD, RTC_BREG);
     uint8_t b_value = cmos_read8(RTC_BREG);
     b_value |= RTC_PIE;
-    outb(CMOS_CMD, RTC_BREG);
+    // outb(CMOS_CMD, RTC_BREG);
     cmos_write8(RTC_BREG, b_value);
 
     uint8_t a_value = cmos_read8(RTC_AREG);
     a_value |= 0x0f;
     cmos_write8(RTC_AREG, a_value);
 
-    nmi_enable();
+    // nmi_enable();
 }
 
 uint8_t
