@@ -10,6 +10,7 @@
 #include <kern/sched.h>
 #include <kern/kclock.h>
 #include <kern/picirq.h>
+#include <kern/timer.h>
 #include <kern/traceopt.h>
 
 static struct Taskstate ts;
@@ -95,9 +96,11 @@ trapname(int trapno) {
 void
 trap_init(void) {
     // LAB 4: Your code here
+    /* < < < < < < < HEAD*/
 
     extern void (*clock_thdlr)(void);
-
+    
+    
     idt[IRQ_OFFSET + IRQ_CLOCK].gd_off_15_0 = (uint64_t)((uintptr_t)(&clock_thdlr)) & 0xFFFF;
     idt[IRQ_OFFSET + IRQ_CLOCK].gd_ss = (GD_KT);
     idt[IRQ_OFFSET + IRQ_CLOCK].gd_ist = 0;
@@ -109,10 +112,21 @@ trap_init(void) {
     idt[IRQ_OFFSET + IRQ_CLOCK].gd_off_31_16 = ((uint64_t)((uintptr_t)(&clock_thdlr)) >> 16) & 0xFFFF;
     idt[IRQ_OFFSET + IRQ_CLOCK].gd_off_32_63 = ((uint64_t)((uintptr_t)(&clock_thdlr)) >> 32) & 0xFFFFFFFF;
     idt[IRQ_OFFSET + IRQ_CLOCK].gd_rsv2 = 0;
+    
 
     pic_irq_unmask(IRQ_CLOCK);
+    // pic_irq_unmask(IRQ_TIMER);
 
+/*=======
+    // LAB 5: Your code here
+>>>>>>> origin/lab5
+    */
+    // LAB 4: Your code here
+    idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, (uintptr_t)&clock_thdlr, 0);
+    // LAB 5: Your code here
+    idt[IRQ_OFFSET + IRQ_TIMER] = GATE(0, GD_KT, (uintptr_t)&clock_thdlr, 0);
     /* Per-CPU setup */
+    // idt[T_PGFLT].gd_ist = 1;
     trap_init_percpu();
 }
 
@@ -226,7 +240,11 @@ trap_dispatch(struct Trapframe *tf) {
             print_trapframe(tf);
         }
         return;
+    case IRQ_OFFSET + IRQ_TIMER:
     case IRQ_OFFSET + IRQ_CLOCK:
+        // LAB 5: Your code here
+        timer_for_schedule->handle_interrupts();
+
         // LAB 4: Your code here
         rtc_check_status();
         pic_send_eoi(IRQ_CLOCK);

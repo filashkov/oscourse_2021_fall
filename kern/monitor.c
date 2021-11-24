@@ -11,8 +11,11 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/tsc.h>
+#include <kern/timer.h>
 #include <kern/env.h>
 #include <kern/trap.h>
+#include <kern/kclock.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
@@ -23,6 +26,9 @@ int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
 int mon_printsomething(int argc, char **argv, struct Trapframe* tf);
 int mon_dumpcmos(int argc, char **argv, struct Trapframe *tf);
+int mon_start(int argc, char **argv, struct Trapframe *tf);
+int mon_stop(int argc, char **argv, struct Trapframe *tf);
+int mon_frequency(int argc, char **argv, struct Trapframe *tf);
 
 struct Command {
     const char *name;
@@ -36,7 +42,10 @@ static struct Command commands[] = {
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
         {"printsomething", "Print something", mon_printsomething},
-        {"dumpcmos", "Print CMOS contents", mon_dumpcmos}
+        {"dumpcmos", "Print CMOS contents", mon_dumpcmos},
+        {"timer_start", "Start timer", mon_start},
+        {"timer_stop", "Stop timer", mon_stop},
+        {"timer_freq", "Timer frequency", mon_frequency}
 };
 
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
@@ -118,7 +127,42 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
     // Make sure you understand the values read.
     // Hint: Use cmos_read8()/cmos_write8() functions.
     // LAB 4: Your code here
+    for (uint8_t cmos_address = 0; cmos_address < 128; ) {
+        cprintf("%02X: ", cmos_address);
+        for (uint8_t i = 0; i < 16; cmos_address++, i++) {
+            cprintf("%02X ", cmos_read8(cmos_address));
+        }
+        cputchar('\n');
+    }
+    return 0;
+}
 
+/* Implement timer_start (mon_start), timer_stop (mon_stop), timer_freq (mon_frequency) commands. */
+// LAB 5: Your code here:
+
+int
+mon_start(int argc, char** argv, struct Trapframe* tf) {
+    if (argc < 2) {
+        cprintf("Not enough arguments!");
+        return 1;
+    }
+    timer_start(argv[1]);
+    return 0;
+}
+
+int
+mon_stop(int argc, char** argv, struct Trapframe* tf) {
+    timer_stop();
+    return 0;
+}
+
+int
+mon_frequency(int argc, char** argv, struct Trapframe* tf) {
+    if (argc < 2) {
+        cprintf("Not enough arguments!");
+        return 1;
+    }
+    timer_cpu_frequency(argv[1]);
     return 0;
 }
 
