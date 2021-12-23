@@ -21,13 +21,9 @@ uint8_t
 cmos_read8(uint8_t reg) {
     /* MC146818A controller */
     // LAB 4: Your code here
-
     nmi_disable();
-
-    uint8_t res = 0;
-    outb(CMOS_CMD, reg);
-    res = inb(CMOS_DATA);
-
+	outb(CMOS_CMD, reg);
+    uint8_t res = inb(CMOS_DATA);
     nmi_enable();
     return res;
 }
@@ -35,12 +31,9 @@ cmos_read8(uint8_t reg) {
 void
 cmos_write8(uint8_t reg, uint8_t value) {
     // LAB 4: Your code here
-    
     nmi_disable();
-
     outb(CMOS_CMD, reg);
-    outb(CMOS_DATA, value);
-
+	outb(CMOS_DATA, value);
     nmi_enable();
 }
 
@@ -73,13 +66,13 @@ void
 rtc_timer_init(void) {
     // LAB 4: Your code here
     // (use cmos_read8/cmos_write8)
-    uint8_t b_value = cmos_read8(RTC_BREG);
-    b_value |= RTC_PIE;
-    cmos_write8(RTC_BREG, b_value);
-
-    uint8_t a_value = cmos_read8(RTC_AREG);
-    a_value |= 0x0f;
-    cmos_write8(RTC_AREG, a_value);
+	uint8_t reg_b = cmos_read8(RTC_BREG);
+	reg_b |= RTC_PIE;
+	cmos_write8(RTC_BREG, reg_b);
+	// 0.5 sec
+	uint8_t reg_a = cmos_read8(RTC_AREG);
+	reg_a |= 0x0F;
+	cmos_write8(RTC_AREG, reg_a);
 }
 
 uint8_t

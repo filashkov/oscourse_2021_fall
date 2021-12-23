@@ -87,9 +87,7 @@ acpi_find_table(const char *sign) {
      * HINT: RSDP address is stored in uefi_lp->ACPIRoot
      * HINT: You may want to distunguish RSDT/XSDT
      */
-
     // LAB 5: Your code here
-
     static RSDT *rsdt;
     static size_t rsdt_len;
     static size_t rsdt_entsz;
@@ -166,14 +164,9 @@ get_fadt(void) {
     // (use acpi_find_table)
     // HINT: ACPI table signatures are
     //       not always as their names
-
-    static FADT *kfadt = NULL;
-
-    if (kfadt == NULL) {
-        kfadt = acpi_find_table("FACP");
-    }
-
-    return kfadt;
+    static FADT *fadt;
+    fadt = acpi_find_table("FACP");
+    return fadt;
 }
 
 /* Obtain and map RSDP ACPI table address. */
@@ -181,14 +174,9 @@ HPET *
 get_hpet(void) {
     // LAB 5: Your code here
     // (use acpi_find_table)
-
-    static HPET *khpet = NULL;
-
-    if (khpet == NULL) {
-        khpet = acpi_find_table("HPET");
-    }
-
-    return khpet;
+    static HPET *hpet;
+    hpet = acpi_find_table("HPET");
+    return hpet;
 }
 
 /* Getting physical HPET timer address from its table. */
@@ -289,7 +277,7 @@ void
 hpet_enable_interrupts_tim0(void) {
     // LAB 5: Your code here
     hpetReg->GEN_CONF |= HPET_LEG_RT_CNF;
-    hpetReg->TIM0_CONF = (IRQ_TIMER << 9);
+    hpetReg->TIM0_CONF = (IRQ_TIMER << 9); 
     hpetReg->TIM0_CONF |= HPET_TN_TYPE_CNF | HPET_TN_INT_ENB_CNF | HPET_TN_VAL_SET_CNF;
     hpetReg->TIM0_COMP = hpet_get_main_cnt() + Peta / hpetFemto / 2;
     hpetReg->TIM0_COMP = Peta / hpetFemto / 2;
@@ -361,10 +349,11 @@ pmtimer_cpu_frequency(void) {
         } else if (first - next > 0) {
             d = next - first + 0xFFFFFFFF;
         } else {
-            d = next - first;
+            d = next- first;
         }
     }
     uint64_t next_tsc = read_tsc();
     cpu_freq = (next_tsc - first_tsc) * 10;
     return cpu_freq;
 }
+

@@ -193,46 +193,49 @@ print_timer_error(void) {
 
 // LAB 5: Your code here:
 
-static bool timer_started = false;
+static bool timer_started = 0;
 static int timer_id = -1;
 static uint64_t timer = 0;
 static uint64_t freq = 0;
 
 void
 timer_start(const char *name) {
-    // LAB 5 code
-    for (int i = 0; i < MAX_TIMERS; i++) {
-        if (timertab[i].timer_name && !strcmp(timertab[i].timer_name, name)) {
-            timer_id = i;
-            timer_started = true;
-            timer = read_tsc();
-            freq = timertab[timer_id].get_cpu_freq();
-            return;
-        }
-    }
-    cprintf("Wrong timer name!\n");
+	for (int i = 0; i < MAX_TIMERS; i++) {
+		if (timertab[i].timer_name) {
+			if (!strcmp(timertab[i].timer_name, name)) {
+				timer_started = 1;
+				timer_id = i;
+				timer = read_tsc();
+				freq = timertab[timer_id].get_cpu_freq();
+				break;
+			}
+		}
+	}
 }
 
 void
 timer_stop(void) {
-    // LAB 5 code
-    if ((timer_started == false) || (timer_id < 0)) {
-        print_timer_error();
-        return;
-    }
-    print_time((read_tsc() - timer) / freq);
-    timer_id = -1;
-    timer_started = false;
+	if (!timer_started) {
+		print_timer_error();
+		return;
+	}
+	timer_started = 0;
+	if (timer_id < 0) {
+		print_timer_error();
+		return;
+	}
+	timer_id = -1;
+	print_time((read_tsc() - timer) / freq);
 }
 
 void
 timer_cpu_frequency(const char *name) {
-    // LAB 5 code
-    for (int i = 0; i < MAX_TIMERS; i++) {
-        if (timertab[i].timer_name && !strcmp(timertab[i].timer_name, name)) {
-            cprintf("%lu\n", timertab[i].get_cpu_freq());
-            return;
-        }
-    }
-    cprintf("Timer Error\n");
+	for (int i = 0; i < MAX_TIMERS; i++) {
+		if (timertab[i].timer_name) {
+			if (!strcmp(timertab[i].timer_name, name)) {
+				cprintf("%lu\n", timertab[i].get_cpu_freq());
+				break;
+			}
+		}
+	}
 }

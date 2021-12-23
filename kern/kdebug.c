@@ -84,7 +84,7 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     /* Initialize *info */
     strcpy(info->rip_file, UNKNOWN);
     strcpy(info->rip_fn_name, UNKNOWN);
-    info->rip_fn_namelen = sizeof(UNKNOWN) - 1;
+    info->rip_fn_namelen = sizeof UNKNOWN - 1;
     info->rip_line = 0;
     info->rip_fn_addr = addr;
     info->rip_fn_narg = 0;
@@ -92,17 +92,16 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     /* Temporarily load kernel cr3 and return back once done.
     * Make sure that you fully understand why it is necessary. */
     // LAB 8: Your code here
-    uintptr_t old_cr3 = curenv->address_space.cr3;
+	uintptr_t old_cr3 = curenv->address_space.cr3;
     if (old_cr3 != kspace.cr3) {
-        lcr3(kspace.cr3);
-    }
+		lcr3(kspace.cr3);
+	}
     /* Load dwarf section pointers from either
      * currently running program binary or use
      * kernel debug info provided by bootloader
      * depending on whether addr is pointing to userspace
      * or kernel space */
     // LAB 8: Your code here:
-
     struct Dwarf_Addrs addrs;
     if (addr < MAX_USER_READABLE) {
         load_user_dwarf_info(&addrs);
@@ -125,18 +124,11 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     * Hint: use line_for_address from kern/dwarf_lines.c */
 
     // LAB 2: Your res here:
-
-    const uintptr_t func_address = addr - 5;
-    int required_line_number = 0;
-    // Now we need to get line_offset
-    // We used file_name_by_info
-
-    res = line_for_address(&addrs, func_address, line_offset, &required_line_number);
-    if (res < 0) {
-        goto error;
-    }
-    info->rip_line = required_line_number;
-
+    int lineno;
+	addr = addr - 5;
+	res = line_for_address(&addrs, addr, line_offset, &lineno);
+	if (res < 0) goto error;
+	info->rip_line = lineno;
     /* Find function name corresponding to given address.
     * Hint: note that we need the address of `call` instruction, but rip holds
     * address of the next instruction, so we should substract 5 from it.
@@ -145,17 +137,10 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     * string returned by function_by_info will always be */
 
     // LAB 2: Your res here:
-
-    //int function_by_info(const struct Dwarf_Addrs *addrs, uintptr_t p, Dwarf_Off cu_offset, char **buf, uintptr_t *offset);
-
-    char *my_buf;
-
-    res = function_by_info(&addrs, func_address, offset, &my_buf, &info->rip_fn_addr);
-    if (res < 0) {
-        goto error;
-    }
-    strncpy(info->rip_fn_name, my_buf, sizeof(info->rip_file));
-    info->rip_fn_namelen = strnlen(info->rip_file, sizeof(info->rip_file));
+	res = function_by_info(&addrs, addr, offset, &tmp_buf, (uintptr_t *)sizeof(char *));
+	if (res < 0) goto error;
+	strncpy(info->rip_fn_name, tmp_buf, 256);
+	info->rip_fn_namelen = strnlen(info->rip_fn_name, 256);
 
 error:
     return res;
@@ -170,17 +155,16 @@ find_function(const char *const fname) {
      * in assembly. */
 
     // LAB 3: Your code here:
-
     struct Dwarf_Addrs addr;
-    load_kernel_dwarf_info(&addr);
-    uintptr_t offset = 0;
-    if (!address_by_fname(&addr, fname, &offset)) {
-        if (offset) {
-            return offset;
-        }
-    }
-    if (!naive_address_by_fname(&addr, fname, &offset)) {
-        return offset;
-    }
+	load_kernel_dwarf_info(&addr);
+	uintptr_t offset = 0;
+	if (!address_by_fname(&addr, fname, &offset)) {
+		if (offset) {
+			return offset;
+		}
+	}
+	if (!naive_address_by_fname(&addr, fname, &offset)) {
+		return offset;
+	}
     return 0;
 }
