@@ -336,7 +336,9 @@ env_create(uint8_t *binary, size_t size, enum EnvType type) {
         panic("Can't allocate new environment\n");
     }
     new->binary = binary;
-    load_icode(new, binary, size);
+    if (load_icode(new, binary, size) < 0) {
+        panic("Can't load icode\n");
+    }
 }
 
 
