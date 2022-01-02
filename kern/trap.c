@@ -145,12 +145,18 @@ trap_init(void) {
     idt[T_SIMDERR] = GATE(0, GD_KT, (uint64_t)&thdlr19, 0);
     extern void (*thdlr48)(void);
     idt[T_SYSCALL] = GATE(0, GD_KT, (uint64_t)&thdlr48, 3);
+    extern void (*kbd_thdlr)(void);
+    idt[IRQ_OFFSET + IRQ_KBD] = GATE(0, GD_KT, (uintptr_t)(&kbd_thdlr), 3);
+    extern void (*serial_thdlr)(void);
+    idt[IRQ_OFFSET + IRQ_SERIAL] = GATE(0, GD_KT, (uintptr_t)(&serial_thdlr), 3);
     /* Setup #PF handler dedicated stack
      * It should be switched on #PF because
      * #PF is the only kind of exception that
      * can legally happen during normal kernel
      * code execution */
     idt[T_PGFLT].gd_ist = 1;
+
+    // LAB 11: Your code here
 
     /* Per-CPU setup */
     trap_init_percpu();
@@ -293,6 +299,16 @@ trap_dispatch(struct Trapframe *tf) {
         rtc_check_status();
 		pic_send_eoi(IRQ_CLOCK);
 		sched_yield();
+        return;
+        /* Handle keyboard and serial interrupts. */
+        // LAB 11: Your code here
+    case IRQ_OFFSET + IRQ_KBD:
+        kbd_intr();
+        sched_yield();
+        return;
+    case IRQ_OFFSET + IRQ_SERIAL:
+        serial_intr();
+        sched_yield();
         return;
     default:
         print_trapframe(tf);
@@ -441,7 +457,7 @@ page_fault_handler(struct Trapframe *tf) {
     static_assert(UTRAP_RSP == offsetof(struct UTrapframe, utf_rsp), "UTRAP_RSP should be equal to RSP offset");
 	
 	uintptr_t fault_va = cr2;
-    cprintf("[%09x] ENTER %p \n", curenv->env_id, curenv->env_pgfault_upcall);
+    //cprintf("[%09x] ENTER %p \n", curenv->env_id, curenv->env_pgfault_upcall);
     if (curenv->env_pgfault_upcall == NULL) {
         cprintf("[%09x] user fault va: %08lx ip %08lx\n", curenv->env_id, fault_va, tf->tf_rip);
 		goto ret;
@@ -479,9 +495,7 @@ page_fault_handler(struct Trapframe *tf) {
     switch_address_space(old);
     /* Reset in_page_fault flag */
     // LAB 9: Your code here:
-	if (envs->env_tf.tf_trapno == T_PGFLT) {
-        in_page_fault = 0;
-    }
+    in_page_fault = 0;
     /* Rerun current environment */
     // LAB 9: Your code here:
     env_run(curenv);

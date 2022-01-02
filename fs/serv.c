@@ -196,15 +196,15 @@ serve_read(envid_t envid, union Fsipc *ipc) {
     }
 
     // LAB 10: Your code here
-    struct OpenFile *o;
+	struct OpenFile *o;
     int res = openfile_lookup(envid, req->req_fileid, &o);
     if (res < 0) {
-        return res;
-    }
+		return res;
+	}
     ssize_t read = file_read(o->o_file, ipc->readRet.ret_buf, req->req_n, o->o_fd->fd_offset);
     if (read < 0) {
-        return read;
-    }
+		return read;
+	}
     o->o_fd->fd_offset += read;
     return read;
 }
@@ -216,19 +216,20 @@ serve_read(envid_t envid, union Fsipc *ipc) {
 int
 serve_write(envid_t envid, union Fsipc *ipc) {
     struct Fsreq_write *req = &ipc->write;
-    if (debug)
+    if (debug) {
         cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, (uint32_t)req->req_n);
+	}
 
     // LAB 10: Your code here
-    struct OpenFile *o;
+	struct OpenFile *o;
     int res = openfile_lookup(envid, req->req_fileid, &o);
     if (res < 0) {
-        return res;
-    }
+		return res;
+	}
     ssize_t writen = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset);
     if (writen < 0) {
-        return writen;
-    }
+		return writen;
+	}
     o->o_fd->fd_offset += writen;
     return writen;
 }

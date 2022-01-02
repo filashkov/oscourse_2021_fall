@@ -32,7 +32,7 @@ sched_yield(void) {
 		cur_id = 0;
 	}
 	parent_id = cur_id;
-	while (true) {
+	while (1) {
 		cur_id = (cur_id + 1) % NENV;
 		if (envs[cur_id].env_status == ENV_RUNNABLE) {
 			env_run(&envs[cur_id]);

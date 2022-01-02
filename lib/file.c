@@ -113,12 +113,12 @@ devfile_read(struct Fd *fd, void *buf, size_t n) {
    * system server. */
 
     // LAB 10: Your code here:
-    fsipcbuf.read.req_fileid = fd->fd_file.id;
+	fsipcbuf.read.req_fileid = fd->fd_file.id;
     fsipcbuf.read.req_n = n;
     int read = fsipc(FSREQ_READ, NULL);
     if (read < 0) {
-        return read;
-    }
+		return read;
+	}
     memmove(buf, fsipcbuf.readRet.ret_buf, read);
     return read;
 }
@@ -135,13 +135,13 @@ devfile_write(struct Fd *fd, const void *buf, size_t n) {
    * remember that write is always allowed to write *fewer*
    * bytes than requested. */
     // LAB 10: Your code here:
-    fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
     fsipcbuf.write.req_n = n;
     memmove(fsipcbuf.write.req_buf, buf, MIN(sizeof(fsipcbuf.write.req_buf), n));
-    int write = fsipc(FSREQ_WRITE, NULL);
+    int write= fsipc(FSREQ_WRITE, NULL);
     if (write < 0) {
-        return write;
-    }
+		return write;
+	}
     return write;
 }
 

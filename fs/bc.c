@@ -31,7 +31,7 @@ bc_pgfault(struct UTrapframe *utf) {
      * of the block from the disk into that page.
      * Hint: first round addr to page boundary. fs/ide.c has code to read
      * the disk. */
-    // LAB 10: Your code here=
+    // LAB 10: Your code here
     addr = ROUNDDOWN(addr, PAGE_SIZE);
     int res = sys_alloc_region(CURENVID, addr, PAGE_SIZE, PROT_RW);
     if (res < 0) {
@@ -61,7 +61,7 @@ flush_block(void *addr) {
         panic("reading non-existent block %08x out of %08x\n", blockno, super->s_nblocks);
 
     // LAB 10: Your code here.
-    addr = ROUNDDOWN(addr, PAGE_SIZE);
+	addr = ROUNDDOWN(addr, PAGE_SIZE);
     if (!is_page_present(addr) || !is_page_dirty(addr)) {
         return;
     }
