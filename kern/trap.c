@@ -2,6 +2,7 @@
 #include <inc/x86.h>
 #include <inc/assert.h>
 #include <inc/string.h>
+#include <inc/vsyscall.h>
 
 #include <kern/pmap.h>
 #include <kern/trap.h>
@@ -13,6 +14,7 @@
 #include <kern/kclock.h>
 #include <kern/picirq.h>
 #include <kern/timer.h>
+#include <kern/vsyscall.h>
 #include <kern/traceopt.h>
 
 static struct Taskstate ts;
@@ -101,13 +103,13 @@ void
 trap_init(void) {
     // LAB 4: Your code here
     extern void (*clock_thdlr)(void);
-	idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, (uintptr_t)&clock_thdlr, 0);
+    idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, (uintptr_t)&clock_thdlr, 0);
     // LAB 5: Your code here
     idt[IRQ_OFFSET + IRQ_TIMER] = GATE(0, GD_KT, (uintptr_t)&clock_thdlr, 0);
 
     /* Insert trap handlers into IDT */
     // LAB 8: Your code here
-	extern void (*thdlr0)(void);
+    extern void (*thdlr0)(void);
     idt[T_DIVIDE] = GATE(0, GD_KT, (uint64_t)&thdlr0, 0);
     extern void (*thdlr1)(void);
     idt[T_DEBUG] = GATE(0, GD_KT, (uint64_t)&thdlr1, 0);
@@ -293,12 +295,14 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case IRQ_OFFSET + IRQ_TIMER:
     case IRQ_OFFSET + IRQ_CLOCK:
+        // LAB 12: Your code here
         // LAB 5: Your code here
         // LAB 4: Your code here
+        vsys[VSYS_gettime] = gettime();
         timer_for_schedule->handle_interrupts();
         rtc_check_status();
-		pic_send_eoi(IRQ_CLOCK);
-		sched_yield();
+        pic_send_eoi(IRQ_CLOCK);
+        sched_yield();
         return;
         /* Handle keyboard and serial interrupts. */
         // LAB 11: Your code here
@@ -455,21 +459,20 @@ page_fault_handler(struct Trapframe *tf) {
 
     static_assert(UTRAP_RIP == offsetof(struct UTrapframe, utf_rip), "UTRAP_RIP should be equal to RIP offset");
     static_assert(UTRAP_RSP == offsetof(struct UTrapframe, utf_rsp), "UTRAP_RSP should be equal to RSP offset");
-	
-	uintptr_t fault_va = cr2;
-    //cprintf("[%09x] ENTER %p \n", curenv->env_id, curenv->env_pgfault_upcall);
+
+    uintptr_t fault_va = cr2;
+    /*cprintf("[%09x] ENTER %p \n", curenv->env_id, curenv->env_pgfault_upcall); */
     if (curenv->env_pgfault_upcall == NULL) {
         cprintf("[%09x] user fault va: %08lx ip %08lx\n", curenv->env_id, fault_va, tf->tf_rip);
-		goto ret;
+        goto ret;
     }
-
     /* Force allocation of exception stack page to prevent memcpy from
      * causing pagefault during another pagefault */
     // LAB 9: Your code here:
-	force_alloc_page(&curenv->address_space, USER_EXCEPTION_STACK_TOP - PAGE_SIZE, PAGE_SIZE);
+    force_alloc_page(&curenv->address_space, USER_EXCEPTION_STACK_TOP - PAGE_SIZE, PAGE_SIZE);
     /* Assert existance of exception stack using user mem assert */
     // LAB 9: Your code here:
-	uintptr_t user_rsp = USER_EXCEPTION_STACK_TOP;
+    uintptr_t user_rsp = USER_EXCEPTION_STACK_TOP;
     if (tf->tf_rsp < USER_EXCEPTION_STACK_TOP && tf->tf_rsp > USER_EXCEPTION_STACK_TOP - PAGE_SIZE) {
         user_rsp = tf->tf_rsp - sizeof(uintptr_t);
     }
@@ -477,7 +480,7 @@ page_fault_handler(struct Trapframe *tf) {
     user_mem_assert(curenv, (void *)user_rsp, sizeof(struct UTrapframe), PROT_W);
     /* Build local copy of UTrapframe */
     // LAB 9: Your code here:
-	struct UTrapframe user_trap;
+    struct UTrapframe user_trap;
     user_trap.utf_fault_va = (uint64_t)fault_va;
     user_trap.utf_err = tf->tf_err;
     user_trap.utf_regs = tf->tf_regs;
@@ -488,7 +491,7 @@ page_fault_handler(struct Trapframe *tf) {
     tf->tf_rip = (uintptr_t)curenv->env_pgfault_upcall;
     /* And then copy it userspace (nosan_memcpy) */
     // LAB 9: Your code here:
-	struct AddressSpace *old = switch_address_space(&curenv->address_space);
+    struct AddressSpace *old = switch_address_space(&curenv->address_space);
     set_wp(false);
     nosan_memcpy((void *)(user_rsp), (void *)&user_trap, sizeof(struct UTrapframe));
     set_wp(true);
@@ -500,8 +503,8 @@ page_fault_handler(struct Trapframe *tf) {
     // LAB 9: Your code here:
     env_run(curenv);
 ret:
-	user_mem_assert(curenv, (void *)tf->tf_rsp, sizeof(struct UTrapframe), PROT_W | PROT_USER_);
-	print_trapframe(tf);
-	env_destroy(curenv);
-	panic("page_fault_handler is return");
+    user_mem_assert(curenv, (void *)tf->tf_rsp, sizeof(struct UTrapframe), PROT_W | PROT_USER_);
+    print_trapframe(tf);
+    env_destroy(curenv);
+    panic("page_fault_handler is return");
 }

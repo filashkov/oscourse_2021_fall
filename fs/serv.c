@@ -7,7 +7,7 @@
 #include <inc/string.h>
 
 #include "fs.h"
-
+#define BUFSIZE (PAGE_SIZE - sizeof(int) - sizeof(size_t))
 /* The file system server maintains three structures
  * for each open file.
  *
@@ -196,15 +196,18 @@ serve_read(envid_t envid, union Fsipc *ipc) {
     }
 
     // LAB 10: Your code here
-	struct OpenFile *o;
+    struct OpenFile *o;
     int res = openfile_lookup(envid, req->req_fileid, &o);
     if (res < 0) {
-		return res;
-	}
+        return res;
+    }
+    if (req->req_n > BUFSIZE) {
+        req->req_n = BUFSIZE;
+    }
     ssize_t read = file_read(o->o_file, ipc->readRet.ret_buf, req->req_n, o->o_fd->fd_offset);
     if (read < 0) {
-		return read;
-	}
+        return read;
+    }
     o->o_fd->fd_offset += read;
     return read;
 }
@@ -218,18 +221,18 @@ serve_write(envid_t envid, union Fsipc *ipc) {
     struct Fsreq_write *req = &ipc->write;
     if (debug) {
         cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, (uint32_t)req->req_n);
-	}
+    }
 
     // LAB 10: Your code here
-	struct OpenFile *o;
+    struct OpenFile *o;
     int res = openfile_lookup(envid, req->req_fileid, &o);
     if (res < 0) {
-		return res;
-	}
+        return res;
+    }
     ssize_t writen = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset);
     if (writen < 0) {
-		return writen;
-	}
+        return writen;
+    }
     o->o_fd->fd_offset += writen;
     return writen;
 }
