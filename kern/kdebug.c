@@ -168,3 +168,23 @@ find_function(const char *const fname) {
 	}
     return 0;
 }
+
+int
+print_arguments(char *fname) {
+    struct Dwarf_Addrs addrs;
+
+    uintptr_t tmp_cr3 = curenv->address_space.cr3;
+    lcr3(kspace.cr3);
+    load_kernel_dwarf_info(&addrs);
+
+    int res;
+
+    res = ret_by_fname(&addrs, fname);
+    if (res) {
+        lcr3(tmp_cr3);
+        return res;
+    }
+    res = arguments_by_fname(&addrs, fname);
+    lcr3(tmp_cr3);
+    return res;
+}

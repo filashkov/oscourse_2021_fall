@@ -17,6 +17,7 @@
 #include <kern/pmap.h>
 #include <kern/trap.h>
 #include <kern/kclock.h>
+#include <kern/alloc.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
@@ -25,7 +26,7 @@
 int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
-int mon_printsomething(int argc, char **argv, struct Trapframe* tf);
+int mon_printsomething(int argc, char **argv, struct Trapframe *tf);
 int mon_dumpcmos(int argc, char **argv, struct Trapframe *tf);
 int mon_start(int argc, char **argv, struct Trapframe *tf);
 int mon_stop(int argc, char **argv, struct Trapframe *tf);
@@ -33,6 +34,8 @@ int mon_frequency(int argc, char **argv, struct Trapframe *tf);
 int mon_memory(int argc, char **argv, struct Trapframe *tf);
 int mon_pagetable(int argc, char **argv, struct Trapframe *tf);
 int mon_virt(int argc, char **argv, struct Trapframe *tf);
+int mon_call(int argc, char **argv, struct Trapframe *tf);
+int mon_funcinfo(int argc, char** argv, struct Trapframe* tf);
 
 struct Command {
     const char *name;
@@ -49,8 +52,9 @@ static struct Command commands[] = {
         {"dumpcmos", "Print CMOS contents", mon_dumpcmos},
         {"timer_start", "Start timer", mon_start},
         {"timer_stop", "Stop timer", mon_stop},
-        {"timer_freq", "Timer frequency", mon_frequency}
-};
+        {"timer_freq", "Timer frequency", mon_frequency},
+        {"call", "Call function", mon_call},
+        {"funcinfo", "Get info about function", mon_funcinfo}};
 
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -95,7 +99,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
         int function_call_result;
 
         function_call_result = debuginfo_rip(my_rip_address, &my_info);
-        
+
         cprintf("    %s:%d: %s+%ld\n", my_info.rip_file, my_info.rip_line, my_info.rip_fn_name, current_rip_value - my_info.rip_fn_addr);
 
         /*
@@ -113,7 +117,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
 }
 
 int
-mon_printsomething(int argc, char** argv, struct Trapframe* tf) {
+mon_printsomething(int argc, char **argv, struct Trapframe *tf) {
     if (argc == 1) {
         cprintf("I will not say the day is done nor bid the stars farewell!\n");
     }
@@ -131,7 +135,7 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
     // Make sure you understand the values read.
     // Hint: Use cmos_read8()/cmos_write8() functions.
     // LAB 4: Your code here
-    for (uint8_t cmos_address = 0; cmos_address < 128; ) {
+    for (uint8_t cmos_address = 0; cmos_address < 128;) {
         cprintf("%02X: ", cmos_address);
         for (uint8_t i = 0; i < 16; cmos_address++, i++) {
             cprintf("%02X ", cmos_read8(cmos_address));
@@ -145,7 +149,7 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
 // LAB 5: Your code here:
 
 int
-mon_start(int argc, char** argv, struct Trapframe* tf) {
+mon_start(int argc, char **argv, struct Trapframe *tf) {
     if (argc < 2) {
         cprintf("Not enough arguments!");
         return 1;
@@ -155,13 +159,13 @@ mon_start(int argc, char** argv, struct Trapframe* tf) {
 }
 
 int
-mon_stop(int argc, char** argv, struct Trapframe* tf) {
+mon_stop(int argc, char **argv, struct Trapframe *tf) {
     timer_stop();
     return 0;
 }
 
 int
-mon_frequency(int argc, char** argv, struct Trapframe* tf) {
+mon_frequency(int argc, char **argv, struct Trapframe *tf) {
     if (argc < 2) {
         cprintf("Not enough arguments!");
         return 1;
@@ -194,6 +198,16 @@ mon_pagetable(int argc, char **argv, struct Trapframe *tf) {
 int
 mon_virt(int argc, char **argv, struct Trapframe *tf) {
     dump_virtual_tree(current_space->root, current_space->root->class);
+    return 0;
+}
+
+void test_call();
+
+int
+mon_call(int argc, char **argv, struct Trapframe *tf) {
+    if ((argc == 2) && (strcmp(argv[1], "test") == 0)) {
+        test_call();
+    }
     return 0;
 }
 
@@ -245,4 +259,233 @@ monitor(struct Trapframe *tf) {
     char *buf;
     do buf = readline("K> ");
     while (!buf || runcmd(buf, tf) >= 0);
+}
+
+#define INT_TYPE   8
+#define FLOAT_TYPE -8
+
+void *test_alloc(uint8_t);
+void test_free(void *);
+
+struct ValueAndType {
+    unsigned long long value;
+    unsigned long long another_value;
+    long long type;
+    //char* buffer_for_string;
+    //REPLACED ALLOC
+    char buffer_for_string[250];
+};
+
+int
+call(unsigned long long *args) {
+    unsigned long long rax_value = 0;
+    cprintf("args[0] = %llu\n", args[0]);
+    asm volatile(
+            "movsd -136(%%rax), %%xmm0;"
+            "movsd -120(%%rax), %%xmm1;"
+            "movsd -104(%%rax), %%xmm2;"
+            "movsd -88(%%rax), %%xmm3;"
+            "movsd -72(%%rax), %%xmm4;"
+            "movsd -56(%%rax), %%xmm5;"
+            "movsd -40(%%rax), %%xmm6;"
+            "movsd -24(%%rax), %%xmm7;"
+            "mov $0, %%rdi;"
+            //"pushq %%rax;"
+            "for_begin_label:"
+            "cmpq %%rdi, (%%rax);"
+            "jna for_end_label;"
+            "pushq 64(%%rax, %%rdi, 8);"
+            //"pushq $42;"
+            "add $1, %%rdi;"
+            "jmp for_begin_label;"
+            "for_end_label:"
+            //"mov %%rsp, %%rsi;"
+            "mov 16(%%rax), %%rdi;"
+            "movq 24(%%rax), %%rsi;"
+            "movq 32(%%rax), %%rdx;"
+            "movq 40(%%rax), %%rcx;"
+            "movq 48(%%rax), %%r8;"
+            "movq 56(%%rax), %%r9;"
+            "movq %%rax, %%rbx;"
+            "addq $8, %%rbx;"
+            "mov -8(%%rax), %%rax;"
+            /*"notq %%mm0;"*/
+            /*"pcmpeqd %%xmm0, %%xmm0;"*/
+            //"call *(%%rbx);"
+            "subq $8, %%rbx;"
+            "movq (%%rbx), %%rbx;"
+            "shlq $3, %%rbx;"
+            "add %%rbx, %%rsp;"
+            //"popq %%rbx;"
+            : "=a"(rax_value)
+            : "a"(args)
+            : "rbx");
+    cprintf("\n");
+    cprintf("Out: %lld\n", rax_value);
+    return 0;
+}
+
+unsigned long long *
+argswt2args(unsigned long long func_address, struct ValueAndType *args_with_types, size_t len) {
+    int int_type_counter = 0;
+    int float_type_counter = 0;
+
+    for (int i = 0; i < len; i++) {
+        if (args_with_types[i].type > 0) {
+            int_type_counter += 1;
+        } else {
+            float_type_counter += 1;
+            //printf("%d ", i);
+        }
+    }
+    //puts("");
+
+    int on_stack_int_type_counter = (int_type_counter - 6 >= 0) ? int_type_counter - 6 : 0;
+    int on_stack_float_type_counter = (float_type_counter - 8 >= 0) ? float_type_counter - 8 : 0;
+    int on_stack_alignment = (on_stack_int_type_counter + on_stack_float_type_counter) % 2;
+
+    /*
+    printf("int_type_counter = %d \n", int_type_counter);
+    printf("float_type_counter = %d \n", float_type_counter);
+    printf("on_stack_int_type_counter = %d \n", on_stack_int_type_counter);
+    printf("on_stack_float_type_counter = %d \n", on_stack_float_type_counter);
+    */
+
+    size_t total_size = 2 * 8 + 1 + 1 + 1 + 6 + on_stack_alignment + on_stack_int_type_counter + on_stack_float_type_counter;
+    //unsigned long long* result_row = test_alloc(total_size * (sizeof(*result_row)));
+    //REPLACED ALLOC
+    unsigned long long result_row[250];
+    unsigned long long *result = result_row + 2 * 8 + 1;
+
+    result[-1] = float_type_counter;
+    result[0] = on_stack_int_type_counter + on_stack_float_type_counter + on_stack_alignment;
+    result[1] = func_address;
+
+    int current_int_type_counter = 0;
+    int current_float_type_counter = 0;
+    int current_stack_position = total_size - 2 * 8 - 1 - 1;
+    for (int i = 0; i < len; i++) {
+        if (args_with_types[i].type > 0) {
+            if (current_int_type_counter < 6) {
+                result[2 + current_int_type_counter] = args_with_types[i].value;
+            } else {
+                result[current_stack_position] = args_with_types[i].value;
+                current_stack_position -= 1;
+            }
+            current_int_type_counter += 1;
+        } else {
+            if (current_float_type_counter < 8) {
+                result_row[2 * current_float_type_counter] = args_with_types[i].value;
+            } else {
+                result[current_stack_position] = args_with_types[i].value;
+                current_stack_position -= 1;
+            }
+            current_float_type_counter += 1;
+        }
+    }
+
+    return result;
+}
+
+void
+fcall(unsigned long long func_address, struct ValueAndType *args_with_types, size_t n) {
+    unsigned long long *result = argswt2args(func_address, args_with_types, n);
+    call(result);
+    //REPLACED ALLOC
+    //test_free(result - 2 * 8 - 1);
+}
+
+void
+cvtss2sd(unsigned long long *value_address) {
+    float f;
+    double d;
+    memcpy(&f, value_address, sizeof(f));
+    d = (double)f;
+    memcpy(value_address, &d, sizeof(d));
+}
+
+void
+test_call() {
+    const size_t MAX_FUNCTION_NAME_LEN = 250;
+    const size_t MAX_STRING_ARG_LEN = 250;
+    //const size_t NUMBER_BUFFER_LEN = 250;
+
+    char func_name[MAX_FUNCTION_NAME_LEN];
+    //char number[NUMBER_BUFFER_LEN];
+    int n;
+    cprintf("Input name of function, please: \n");
+    readline(func_name);
+    cprintf("Input number of function arguments: \n");
+    //readline(number);
+    //cscanf("%d", &n);
+    n = 1;
+    //struct ValueAndType* args = test_alloc(n * sizeof(*args));
+    //REPLACED ALLOC
+    struct ValueAndType args[250];
+    for (int i = 0; i < n; i++) {
+        //args[i].buffer_for_string = test_alloc(MAX_STRING_ARG_LEN);
+        //REPLACED ALLOC
+        memset(args[i].buffer_for_string, 0, MAX_STRING_ARG_LEN);
+    }
+    for (int i = 0; i < n; i++) {
+        cprintf("%d argument / %d \n", i + 1, n);
+        char qualifier[] = {'%', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
+        cprintf("Input type: c - char, d - int, f - float, lf - double, ...\n");
+        //cscanf("%s", qualifier + 1);
+        //cgetchar();
+        qualifier[1] = 's';
+        unsigned long long value = 0;
+        if (strcmp(qualifier, "%s") == 0) {
+            cprintf("Input string, qualifier = %s\n", qualifier);
+            //cscanf("%[^\n]%*c", args[i].buffer_for_string);
+            strcpy(args[i].buffer_for_string, "Shalom!");
+            value = (unsigned long long)args[i].buffer_for_string;
+            cprintf("Inputed string = >%s<\n", args[i].buffer_for_string);
+        } else {
+            cprintf("Input value, qualifier = %s\n", qualifier);
+            //cscanf(qualifier, (void*)&value);
+        }
+        if ((strcmp(qualifier, "%f") == 0) || (strcmp(qualifier, "%lf") == 0)) {
+            args[i].type = FLOAT_TYPE;
+            if (strcmp(qualifier, "%f") == 0) {
+                cvtss2sd(&value);
+            }
+        } else {
+            args[i].type = INT_TYPE;
+        }
+        args[i].value = value;
+    }
+    for (int i = 0; i < n; i++) {
+        cprintf("value = %llu, type = %lld\n", args[i].value, args[i].type);
+        if (strlen(args[i].buffer_for_string) != 0) {
+            cprintf("%s\n", args[i].buffer_for_string);
+        }
+    }
+    cprintf("%s(", func_name);
+    for (int i = 0; i < n; i++) {
+        if (strlen(args[i].buffer_for_string) != 0) {
+            cprintf("\"%s\"", args[i].buffer_for_string);
+        } else {
+            cprintf("%llu", args[i].value);
+        }
+        if (i + 1 < n) {
+            cprintf(", ");
+        }
+    }
+    cprintf(")\n");
+
+    unsigned long long func_address = (unsigned long long)cprintf;
+    fcall(func_address, args, n);
+
+    for (int i = 0; i < n; i++) {
+        //test_free(args[i].buffer_for_string);
+        //REPLACED ALLOC
+    }
+}
+
+int
+mon_funcinfo(int argc, char **argv, struct Trapframe *tf) {
+    char *fname = argv[1];
+    print_arguments(fname);
+    return 0;
 }

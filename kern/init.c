@@ -176,6 +176,8 @@ i386_init(void) {
     ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
     /* Touch all you want. */
+    cprintf("Do not start shell, we want remain in kernel mode\n");
+    monitor(NULL);
     ENV_CREATE(user_icode, ENV_TYPE_USER);
 #endif /* TEST* */
 #endif
