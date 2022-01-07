@@ -30,5 +30,6 @@ int vfprintf(int fd, const char *fmt, va_list);
 
 /* lib/readline.c */
 char *readline(const char *prompt);
+void readvalue(const char *format, void *value);
 
 #endif /* !JOS_INC_STDIO_H */

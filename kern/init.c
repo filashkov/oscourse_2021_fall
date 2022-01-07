@@ -159,12 +159,13 @@ i386_init(void) {
 
 #ifdef CONFIG_KSPACE
     /* Touch all you want */
-    ENV_CREATE_KERNEL_TYPE(prog_test1);
+    /* ENV_CREATE_KERNEL_TYPE(prog_test1);
     ENV_CREATE_KERNEL_TYPE(prog_test2);
     ENV_CREATE_KERNEL_TYPE(prog_test3);
     ENV_CREATE_KERNEL_TYPE(prog_test4);
     ENV_CREATE_KERNEL_TYPE(prog_test5);
     ENV_CREATE_KERNEL_TYPE(prog_test6);
+    */
 #else
 
 #if LAB >= 10
@@ -173,9 +174,10 @@ i386_init(void) {
 
 #if defined(TEST)
     /* Don't touch -- used by grading script! */
-    ENV_CREATE(TEST, ENV_TYPE_USER);
+    //ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
     /* Touch all you want. */
+    //ENV_CREATE(user_breakpoint, ENV_TYPE_USER);
     ENV_CREATE(user_icode, ENV_TYPE_USER);
 #endif /* TEST* */
 #endif
@@ -185,8 +187,8 @@ i386_init(void) {
 
     /* Schedule and run the first user environment! */
 
-    cprintf("Do not start shell, we want remain in kernel mode\n");
-    monitor(NULL);
+    //cprintf("!Do not start shell, we want remain in kernel mode\n");
+    //monitor(NULL);
 
     sched_yield();
 }
