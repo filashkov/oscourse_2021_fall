@@ -53,6 +53,9 @@ static struct Command commands[] = {
         {"timer_start", "Start timer", mon_start},
         {"timer_stop", "Stop timer", mon_stop},
         {"timer_freq", "Timer frequency", mon_frequency},
+        {"dump_virt_tree", "Print virtual tree map", mon_virt},
+        {"dump_mem_lists", "Print free memory lists", mon_memory},
+        {"dump_pagetable", "Print page table", mon_pagetable},
         {"call", "Call function", mon_call},
         {"funcinfo", "Get info about function", mon_funcinfo}};
 
@@ -422,6 +425,8 @@ cvtss2sd(unsigned long long *value_address) {
 
 void
 test_call() {
+    uintptr_t tmp_cr3 = curenv->address_space.cr3;
+    lcr3(kspace.cr3);
     //const size_t MAX_FUNCTION_NAME_LEN = 250;
     const size_t MAX_STRING_ARG_LEN = 250;
     //const size_t NUMBER_BUFFER_LEN = 250;
@@ -510,6 +515,7 @@ test_call() {
         //test_free(args[i].buffer_for_string);
         //REPLACED ALLOC
     }
+    lcr3(tmp_cr3);
 }
 
 int
