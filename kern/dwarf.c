@@ -689,8 +689,8 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
 
     int count = 0;
     unsigned long len = 0;
-    const void *entry = addrs->info_begin + cu_offset;
-    const void *type_entry = entry + die_offset;
+    const uint8_t *entry = addrs->info_begin + cu_offset;
+    const uint8_t *type_entry = entry + die_offset;
     count = dwarf_entry_len(entry, &len);
     if (count == 0) {
         return -E_BAD_DWARF;
@@ -707,7 +707,7 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
     entry += sizeof(Dwarf_Small);
     assert(address_size == sizeof(uintptr_t));
 
-    const void *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
+    const uint8_t *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
     entry = type_entry;
     uint64_t abbrev_code = 0;
     uint64_t table_abbrev_code = 0;
@@ -715,7 +715,7 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
     entry += count;
     /* Find abbreviation in abbrev section */
     uint64_t tag = 0, name = 0, form = 0;
-    while ((const unsigned char *)abbrev_entry < addrs->abbrev_end) {
+    while (abbrev_entry < addrs->abbrev_end) {
         count = dwarf_read_uleb128(abbrev_entry, &table_abbrev_code);
         abbrev_entry += count;
         count = dwarf_read_uleb128(abbrev_entry, &tag);
@@ -804,6 +804,28 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
 
         print_type(addrs, type_offset, cu_offset);
 
+    } else if (tag == DW_TAG_enumeration_type) {
+        Dwarf_Off type_offset = 0;
+        do {
+            count = dwarf_read_uleb128(abbrev_entry, &name);
+            abbrev_entry += count;
+            count = dwarf_read_uleb128(abbrev_entry, &form);
+            abbrev_entry += count;
+            if (name == DW_AT_type) {
+                count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
+            } else {
+                count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
+            }
+            entry += count;
+        } while (name != 0 || form != 0);
+
+        cprintf("enum ");
+        if (type_offset == 0) {
+            cprintf("void ");
+            return 0;
+        }
+
+        print_type(addrs, type_offset, cu_offset);
     } else if (tag == DW_TAG_base_type) {
         char *type_name = NULL;
         do {
@@ -873,18 +895,21 @@ get_ret_type_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
     Dwarf_Off offset = 0;
     uintptr_t func_address;
     address_by_fname(addrs, fname, &func_address);
+    if (func_address == 0) {
+        naive_address_by_fname(addrs, fname, &func_address);
+    }
     info_by_address(addrs, func_address, &offset);
 
-    const void *entry = addrs->info_begin + offset;
+    const uint8_t *entry = addrs->info_begin + offset;
     int count = 0;
-    while ((const unsigned char *)entry < addrs->info_end) {
+    if (entry < addrs->info_end) {
         unsigned long len = 0;
         count = dwarf_entry_len(entry, &len);
         if (count == 0) {
             return -E_BAD_DWARF;
         }
         entry += count;
-        const void *entry_end = entry + len;
+        const uint8_t *entry_end = entry + len;
 
         Dwarf_Off cu_header = offset;
 
@@ -901,8 +926,8 @@ get_ret_type_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
         // Parse abbrev and info sections
         uint64_t abbrev_code = 0;
         uint64_t table_abbrev_code = 0;
-        const void *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
-        const void *curr_abbrev_entry = abbrev_entry;
+        const uint8_t *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
+        const uint8_t *curr_abbrev_entry = abbrev_entry;
         while (entry < entry_end) {
             // Read info abbreviation code
             count = dwarf_read_uleb128(entry, &abbrev_code);
@@ -951,7 +976,7 @@ get_ret_type_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
                                 found = true;
                             }
                         } else {
-                            if (!strcmp(fname, entry)) {
+                            if (!strcmp(fname, (const char *)entry)) {
                                 found = true;
                             }
                             count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
@@ -999,21 +1024,23 @@ get_arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
     Dwarf_Off offset = 0;
     uintptr_t func_address;
     address_by_fname(addrs, fname, &func_address);
+    if (func_address == 0) {
+        naive_address_by_fname(addrs, fname, &func_address);
+    }
     info_by_address(addrs, func_address, &offset);
 
-    const void *entry = addrs->info_begin + offset;
+    const uint8_t *entry = addrs->info_begin + offset;
     int count = 0;
-    while ((const unsigned char *)entry < addrs->info_end) {
+    if (entry < addrs->info_end) {
         unsigned long len = 0;
         count = dwarf_entry_len(entry, &len);
         if (count == 0) {
             return -E_BAD_DWARF;
         }
         entry += count;
-        const void *entry_end = entry + len;
+        const uint8_t *entry_end = entry + len;
 
         Dwarf_Off cu_header = offset;
-        
         // Parse compilation unit header
         Dwarf_Half version = get_unaligned(entry, Dwarf_Half);
         entry += sizeof(Dwarf_Half);
@@ -1027,8 +1054,8 @@ get_arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
         // Parse abbrev and info sections
         uint64_t abbrev_code = 0;
         uint64_t table_abbrev_code = 0;
-        const void *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
-        const void *curr_abbrev_entry = abbrev_entry;
+        const uint8_t *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
+        const uint8_t *curr_abbrev_entry = abbrev_entry;
         while (entry < entry_end) {
             // Read info abbreviation code
             count = dwarf_read_uleb128(entry, &abbrev_code);
@@ -1039,7 +1066,7 @@ get_arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
             // Find abbreviation in abbrev section
             curr_abbrev_entry = abbrev_entry;
             uint64_t name = 0, form = 0, tag = 0;
-            while ((const unsigned char *)curr_abbrev_entry < addrs->abbrev_end) {
+            while (curr_abbrev_entry < addrs->abbrev_end) {
                 count = dwarf_read_uleb128(curr_abbrev_entry, &table_abbrev_code);
                 curr_abbrev_entry += count;
                 count = dwarf_read_uleb128(curr_abbrev_entry, &tag);
@@ -1072,7 +1099,7 @@ get_arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
                                 found = 1;
                             }
                         } else {
-                            if (!strcmp(fname, entry)) {
+                            if (!strcmp(fname, (const char *)entry)) {
                                 found = 1;
                             }
                             count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);

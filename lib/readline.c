@@ -175,7 +175,6 @@ readvalue(const char* format, void* value) {
         //double result = s2lf(buf);
         //memcpy(value, &result, sizeof(result));
     } else if (strcmp(format, "%c") == 0) {
-        cprintf(">>>>>Hi! >%s<", format);
         char result = buf[0];
         memcpy(value, &result, sizeof(result));
     }

@@ -208,12 +208,7 @@ void test_call();
 
 int
 mon_call(int argc, char **argv, struct Trapframe *tf) {
-    if ((argc == 2) && (strcmp(argv[1], "test") == 0)) {
-        test_call();
-    } else {
-        cprintf("cprintf address = %llu\n", (unsigned long long)cprintf);
-        cprintf("cprintf by find_function = %llu\n", (unsigned long long)find_function_s("cprintf"));
-    }
+    test_call();
     return 0;
 }
 
@@ -282,8 +277,6 @@ struct ValueAndType {
 int
 call(unsigned long long *args) {
     unsigned long long rax_value = 0;
-    cprintf("args[0] = %llu\n", args[0]);
-    cprintf("Calling function: \n");
     cprintf("=========== FUNCTION STDOUT ===========\n");
     
     asm volatile(
@@ -304,16 +297,13 @@ call(unsigned long long *args) {
             "movsd -40(%%rax), %%xmm6;"
             "movsd -24(%%rax), %%xmm7;"*/
             "mov $0, %%rdi;"
-            //"pushq %%rax;"
             "for_begin_label:"
             "cmpq %%rdi, (%%rax);"
             "jna for_end_label;"
             "pushq 64(%%rax, %%rdi, 8);"
-            //"pushq $42;"
             "add $1, %%rdi;"
             "jmp for_begin_label;"
             "for_end_label:"
-            //"mov %%rsp, %%rsi;"*/
             "mov 16(%%rax), %%rdi;"
             "movq 24(%%rax), %%rsi;"
             "movq 32(%%rax), %%rdx;"
@@ -323,8 +313,6 @@ call(unsigned long long *args) {
             "movq %%rax, %%rbx;"
             "addq $8, %%rbx;"
             "mov -8(%%rax), %%rax;"
-            //"notq %%mm0;"
-            //"pcmpeqd %%xmm0, %%xmm0;"
             "call *(%%rbx);"
             "subq $8, %%rbx;"
             "movq (%%rbx), %%rbx;"
@@ -338,7 +326,6 @@ call(unsigned long long *args) {
             "popq %%rsi;"
             "popq %%rdx;"
             "popq %%rcx;"
-            //"popq %%rbx;"
             : "=a"(rax_value)
             : "a"(args)
             : "rbx");
@@ -350,7 +337,6 @@ call(unsigned long long *args) {
 
 unsigned long long *
 argswt2args(unsigned long long func_address, struct ValueAndType *args_with_types, size_t len) {
-    cprintf("argswt2args function: hello!\n");
     int int_type_counter = 0;
     int float_type_counter = 0;
 
@@ -359,25 +345,14 @@ argswt2args(unsigned long long func_address, struct ValueAndType *args_with_type
             int_type_counter += 1;
         } else {
             float_type_counter += 1;
-            //printf("%d ", i);
         }
     }
-    //puts("");
 
     int on_stack_int_type_counter = (int_type_counter - 6 >= 0) ? int_type_counter - 6 : 0;
     int on_stack_float_type_counter = (float_type_counter - 8 >= 0) ? float_type_counter - 8 : 0;
     int on_stack_alignment = (on_stack_int_type_counter + on_stack_float_type_counter) % 2;
 
-    /*
-    printf("int_type_counter = %d \n", int_type_counter);
-    printf("float_type_counter = %d \n", float_type_counter);
-    printf("on_stack_int_type_counter = %d \n", on_stack_int_type_counter);
-    printf("on_stack_float_type_counter = %d \n", on_stack_float_type_counter);
-    */
-
     size_t total_size = 2 * 8 + 1 + 1 + 1 + 6 + on_stack_alignment + on_stack_int_type_counter + on_stack_float_type_counter;
-    //unsigned long long* result_row = test_alloc(total_size * (sizeof(*result_row)));
-    //REPLACED ALLOC
     static unsigned long long result_row[250];
     unsigned long long *result = result_row + 2 * 8 + 1;
 
@@ -415,8 +390,6 @@ void
 fcall(unsigned long long func_address, struct ValueAndType *args_with_types, size_t n) {
     unsigned long long *result = argswt2args(func_address, args_with_types, n);
     call(result);
-    //REPLACED ALLOC
-    //test_free(result - 2 * 8 - 1);
 }
 
 void
@@ -429,19 +402,10 @@ cvtss2sd(unsigned long long *value_address) {
 }
 
 void
-test_call() {
-    //uintptr_t tmp_cr3 = curenv->address_space.cr3;
-    //lcr3(kspace.cr3);
-    //const size_t MAX_FUNCTION_NAME_LEN = 250;
+test_call() {;
     const size_t MAX_STRING_ARG_LEN = 250;
-    //const size_t NUMBER_BUFFER_LEN = 250;
-
-    //char func_name[MAX_FUNCTION_NAME_LEN];
-    //char number[NUMBER_BUFFER_LEN];
-    //char func_name[] = "cprintf";
     char func_name[250];
     readvalue("%s", func_name);
-    cprintf("Input = >%s<\n", func_name);
     unsigned long long func_address = /*(unsigned long long)cprintf;*/ find_function_s(func_name);
     if (func_address == 0) {
         cprintf("Cannot find this function!\n");
@@ -451,37 +415,24 @@ test_call() {
     cprintf("Input number of function arguments: \n");
     readvalue("%d", &n);
     cprintf("Arguments number = %d\n", n);
-    //struct ValueAndType* args = test_alloc(n * sizeof(*args));
-    //REPLACED ALLOC
     static struct ValueAndType args[250];
     for (int i = 0; i < n; i++) {
-        //args[i].buffer_for_string = test_alloc(MAX_STRING_ARG_LEN);
-        //REPLACED ALLOC
         memset(args[i].buffer_for_string, 0, MAX_STRING_ARG_LEN);
     }
     for (int i = 0; i < n; i++) {
         cprintf("%d argument / %d \n", i + 1, n);
         char qualifier[] = {'%', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
-        cprintf("Input type: c - char, d - int, f - float, lf - double, ...\n");
+        cprintf("Input type: c - char, d - int, llu - unsigned long long, s - string, ...\n");
         readvalue("%s", qualifier + 1);
         cprintf("Readed qualifier = %s\n", qualifier);
-        //cgetchar();
-        //qualifier[1] = 's';
         unsigned long long value = 0;
         if (strcmp(qualifier, "%s") == 0) {
             cprintf("Input string, qualifier = %s\n", qualifier);
-            //cscanf("%[^\n]%*c", args[i].buffer_for_string);
             readvalue("%s", args[i].buffer_for_string);
-            //strcpy(args[i].buffer_for_string, "Shalom!");
             value = (unsigned long long)args[i].buffer_for_string;
-            cprintf("Inputed string = >%s<\n", args[i].buffer_for_string);
         } else {
             cprintf("Input value, qualifier = %s\n", qualifier);
             readvalue(qualifier, &value);
-            cprintf("Inputed value = ");
-            cprintf("%llu", value);
-            cprintf("\n");
-            //cscanf(qualifier, (void*)&value);
         }
         if ((strcmp(qualifier, "%f") == 0) || (strcmp(qualifier, "%lf") == 0)) {
             args[i].type = FLOAT_TYPE;
@@ -493,34 +444,8 @@ test_call() {
         }
         args[i].value = value;
     }
-    for (int i = 0; i < n; i++) {
-        cprintf("value = >%llu<, type = >%lld<\n", args[i].value, args[i].type);
-        // cprintf("WTF? %d\n", 42);
-        // cprintf("Arguments number = %d\n", n);
-        if (strlen(args[i].buffer_for_string) != 0) {
-            cprintf("%s\n", args[i].buffer_for_string);
-        }
-    }
-    cprintf("func_name = >%s<(", func_name);
-    for (int i = 0; i < n; i++) {
-        if (strlen(args[i].buffer_for_string) != 0) {
-            cprintf("\"%s\"", args[i].buffer_for_string);
-        } else {
-            cprintf("%llu", args[i].value);
-        }
-        if (i + 1 < n) {
-            cprintf(", ");
-        }
-    }
-    cprintf(")\n");
-
+    cprintf("Calling %s\n", func_name);
     fcall(func_address, args, n);
-
-    for (int i = 0; i < n; i++) {
-        //test_free(args[i].buffer_for_string);
-        //REPLACED ALLOC
-    }
-    //lcr3(tmp_cr3);
 }
 
 int
