@@ -24,6 +24,7 @@ struct Ripdebuginfo {
 
 int debuginfo_rip(uintptr_t eip, struct Ripdebuginfo *info);
 uintptr_t find_function(const char *const fname);
+uintptr_t find_function_s(const char *const fname);
 
 int print_arguments(char *fname);
 #endif

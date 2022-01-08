@@ -210,6 +210,9 @@ int
 mon_call(int argc, char **argv, struct Trapframe *tf) {
     if ((argc == 2) && (strcmp(argv[1], "test") == 0)) {
         test_call();
+    } else {
+        cprintf("cprintf address = %llu\n", (unsigned long long)cprintf);
+        cprintf("cprintf by find_function = %llu\n", (unsigned long long)find_function_s("cprintf"));
     }
     return 0;
 }
@@ -282,6 +285,7 @@ call(unsigned long long *args) {
     cprintf("args[0] = %llu\n", args[0]);
     cprintf("Calling function: \n");
     cprintf("=========== FUNCTION STDOUT ===========\n");
+    
     asm volatile(
             "pushq %%rcx;"
             "pushq %%rdx;"
@@ -291,14 +295,14 @@ call(unsigned long long *args) {
             "pushq %%r9;"
             "pushq %%r10;"
             "pushq %%r11;"
-            "movsd -136(%%rax), %%xmm0;"
+            /*"movsd -136(%%rax), %%xmm0;"
             "movsd -120(%%rax), %%xmm1;"
             "movsd -104(%%rax), %%xmm2;"
             "movsd -88(%%rax), %%xmm3;"
             "movsd -72(%%rax), %%xmm4;"
             "movsd -56(%%rax), %%xmm5;"
             "movsd -40(%%rax), %%xmm6;"
-            "movsd -24(%%rax), %%xmm7;"
+            "movsd -24(%%rax), %%xmm7;"*/
             "mov $0, %%rdi;"
             //"pushq %%rax;"
             "for_begin_label:"
@@ -309,7 +313,7 @@ call(unsigned long long *args) {
             "add $1, %%rdi;"
             "jmp for_begin_label;"
             "for_end_label:"
-            //"mov %%rsp, %%rsi;"
+            //"mov %%rsp, %%rsi;"*/
             "mov 16(%%rax), %%rdi;"
             "movq 24(%%rax), %%rsi;"
             "movq 32(%%rax), %%rdx;"
@@ -319,8 +323,8 @@ call(unsigned long long *args) {
             "movq %%rax, %%rbx;"
             "addq $8, %%rbx;"
             "mov -8(%%rax), %%rax;"
-            /*"notq %%mm0;"*/
-            /*"pcmpeqd %%xmm0, %%xmm0;"*/
+            //"notq %%mm0;"
+            //"pcmpeqd %%xmm0, %%xmm0;"
             "call *(%%rbx);"
             "subq $8, %%rbx;"
             "movq (%%rbx), %%rbx;"
@@ -338,6 +342,7 @@ call(unsigned long long *args) {
             : "=a"(rax_value)
             : "a"(args)
             : "rbx");
+            
     cprintf("\n========== THE END OF STDOUT ==========\n");
     cprintf("Out: %lld\n", rax_value);
     return 0;
@@ -373,7 +378,7 @@ argswt2args(unsigned long long func_address, struct ValueAndType *args_with_type
     size_t total_size = 2 * 8 + 1 + 1 + 1 + 6 + on_stack_alignment + on_stack_int_type_counter + on_stack_float_type_counter;
     //unsigned long long* result_row = test_alloc(total_size * (sizeof(*result_row)));
     //REPLACED ALLOC
-    unsigned long long result_row[250];
+    static unsigned long long result_row[250];
     unsigned long long *result = result_row + 2 * 8 + 1;
 
     result[-1] = float_type_counter;
@@ -425,8 +430,8 @@ cvtss2sd(unsigned long long *value_address) {
 
 void
 test_call() {
-    uintptr_t tmp_cr3 = curenv->address_space.cr3;
-    lcr3(kspace.cr3);
+    //uintptr_t tmp_cr3 = curenv->address_space.cr3;
+    //lcr3(kspace.cr3);
     //const size_t MAX_FUNCTION_NAME_LEN = 250;
     const size_t MAX_STRING_ARG_LEN = 250;
     //const size_t NUMBER_BUFFER_LEN = 250;
@@ -437,7 +442,7 @@ test_call() {
     char func_name[250];
     readvalue("%s", func_name);
     cprintf("Input = >%s<\n", func_name);
-    unsigned long long func_address = find_function(func_name);
+    unsigned long long func_address = /*(unsigned long long)cprintf;*/ find_function_s(func_name);
     if (func_address == 0) {
         cprintf("Cannot find this function!\n");
         return;
@@ -515,7 +520,7 @@ test_call() {
         //test_free(args[i].buffer_for_string);
         //REPLACED ALLOC
     }
-    lcr3(tmp_cr3);
+    //lcr3(tmp_cr3);
 }
 
 int

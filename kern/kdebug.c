@@ -156,6 +156,7 @@ find_function(const char *const fname) {
 
     // LAB 3: Your code here:
     struct Dwarf_Addrs addr;
+
 	load_kernel_dwarf_info(&addr);
 	uintptr_t offset = 0;
 	if (!address_by_fname(&addr, fname, &offset)) {
@@ -166,6 +167,36 @@ find_function(const char *const fname) {
 	if (!naive_address_by_fname(&addr, fname, &offset)) {
 		return offset;
 	}
+    return 0;
+}
+
+uintptr_t
+find_function_s(const char *const fname) {
+    /* There are two functions for function name lookup.
+     * address_by_fname, which looks for function name in section .debug_pubnames
+     * and naive_address_by_fname which performs full traversal of DIE tree.
+     * It may also be useful to look to kernel symbol table for symbols defined
+     * in assembly. */
+
+    // LAB 3: Your code here:
+    struct Dwarf_Addrs addr;
+
+    uintptr_t tmp_cr3 = curenv->address_space.cr3;
+    lcr3(kspace.cr3);
+    load_kernel_dwarf_info(&addr);
+    uintptr_t offset = 0;
+    if (!address_by_fname(&addr, fname, &offset)) {
+        if (offset) {
+            lcr3(tmp_cr3);
+            return offset;
+        }
+    }
+    cprintf("find_function_s is here!\n");
+    if (!naive_address_by_fname(&addr, fname, &offset)) {
+        lcr3(tmp_cr3);
+        return offset;
+    }
+    lcr3(tmp_cr3);
     return 0;
 }
 

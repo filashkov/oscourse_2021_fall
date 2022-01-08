@@ -699,6 +699,7 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
 
     //const void *entry_end = entry + len;
 
+    /*Parse compilation unit header*/
     Dwarf_Half version = get_unaligned(entry, Dwarf_Half);
     entry += sizeof(Dwarf_Half);
     assert(version == 4 || version == 2);
@@ -921,8 +922,9 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
 int
 ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
     const int flen = strlen(fname);
-    if (flen == 0)
-        return 0;
+    if (flen == 0) {
+        return -E_INVAL;
+    }
 
     Dwarf_Off type_offset = 0;
     Dwarf_Off offset = 0;
@@ -1011,62 +1013,42 @@ ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
                     }
                     if (name == DW_AT_name) {
                         if (form == DW_FORM_strp) {
-                            unsigned long
-                                    str_offset = 0;
-                            count = dwarf_read_abbrev_entry(
-                                    entry, form,
-                                    &str_offset,
-                                    sizeof(
-                                            unsigned long),
-                                    address_size);
-                            if (!strcmp(
-                                        fname,
-                                        (const char
-                                                 *)addrs
-                                                        ->str_begin +
-                                                str_offset)) {
+                            unsigned long str_offset = 0;
+                            count = dwarf_read_abbrev_entry(entry, form, &str_offset, sizeof(unsigned long), address_size);
+                            if (!strcmp(fname, (const char *)addrs->str_begin + str_offset)) {
                                 found = 1;
                             }
                         } else {
                             if (!strcmp(fname, entry)) {
                                 found = 1;
                             }
-                            count = dwarf_read_abbrev_entry(
-                                    entry, form,
-                                    NULL, 0,
-                                    address_size);
+                            count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                         }
                     } else {
-                        count = dwarf_read_abbrev_entry(
-                                entry, form, NULL, 0,
-                                address_size);
+                        count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                     }
                     entry += count;
                 } while (name != 0 || form != 0);
 
                 //only continue if function with this name exists
                 if (found) {
-                    cprintf("Return type: ");
+                    cprintf("-> (");
                     if (!ret_void) {
                         print_type(addrs, type_offset, cu_header);
                     } else {
                         cprintf("void");
                     }
-                    cprintf("\n");
+                    cprintf(")\n");
                     return 0;
                 }
             } else {
                 // skip if not a subprogram or label
                 do {
-                    count = dwarf_read_uleb128(
-                            curr_abbrev_entry, &name);
+                    count = dwarf_read_uleb128(curr_abbrev_entry, &name);
                     curr_abbrev_entry += count;
-                    count = dwarf_read_uleb128(
-                            curr_abbrev_entry, &form);
+                    count = dwarf_read_uleb128(curr_abbrev_entry, &form);
                     curr_abbrev_entry += count;
-                    count = dwarf_read_abbrev_entry(
-                            entry, form, NULL, 0,
-                            address_size);
+                    count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                     entry += count;
                 } while (name != 0 || form != 0);
             }
@@ -1078,8 +1060,9 @@ ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
 int
 arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
     const int flen = strlen(fname);
-    if (flen == 0)
-        return 0;
+    if (flen == 0) {
+        return -E_INVAL;
+    }
 
     Dwarf_Off offset = 0;
     uintptr_t func_address;
@@ -1149,35 +1132,19 @@ arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
                     curr_abbrev_entry += count;
                     if (name == DW_AT_name) {
                         if (form == DW_FORM_strp) {
-                            unsigned long
-                                    str_offset = 0;
-                            count = dwarf_read_abbrev_entry(
-                                    entry, form,
-                                    &str_offset,
-                                    sizeof(
-                                            unsigned long),
-                                    address_size);
-                            if (!strcmp(
-                                        fname,
-                                        (const char
-                                                 *)addrs
-                                                        ->str_begin +
-                                                str_offset)) {
+                            unsigned long str_offset = 0;
+                            count = dwarf_read_abbrev_entry(entry, form, &str_offset, sizeof(unsigned long), address_size);
+                            if (!strcmp(fname, (const char *)addrs->str_begin + str_offset)) {
                                 found = 1;
                             }
                         } else {
                             if (!strcmp(fname, entry)) {
                                 found = 1;
                             }
-                            count = dwarf_read_abbrev_entry(
-                                    entry, form,
-                                    NULL, 0,
-                                    address_size);
+                            count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                         }
                     } else {
-                        count = dwarf_read_abbrev_entry(
-                                entry, form, NULL, 0,
-                                address_size);
+                        count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                     }
                     entry += count;
                 } while (name != 0 || form != 0);
