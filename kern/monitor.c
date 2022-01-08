@@ -526,6 +526,6 @@ test_call() {
 int
 mon_funcinfo(int argc, char **argv, struct Trapframe *tf) {
     char *fname = argv[1];
-    print_arguments(fname);
+    get_arguments(fname);
     return 0;
 }

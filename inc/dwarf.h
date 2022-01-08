@@ -384,8 +384,8 @@ int line_for_address(const struct Dwarf_Addrs *addrs, uintptr_t p, Dwarf_Off lin
 int function_by_info(const struct Dwarf_Addrs *addrs, uintptr_t p, Dwarf_Off cu_offset, char **buf, uintptr_t *offset);
 int address_by_fname(const struct Dwarf_Addrs *addrs, const char *fname, uintptr_t *offset);
 int naive_address_by_fname(const struct Dwarf_Addrs *addrs, const char *fname, uintptr_t *offset);
-int ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname);
-int arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname);
+int get_ret_type_by_fname(struct Dwarf_Addrs *addrs, const char *fname);
+int get_arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname);
 int print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset);
 
 /* dwarf_entry_len - return the length of an FDE or CIE

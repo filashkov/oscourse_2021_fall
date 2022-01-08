@@ -690,30 +690,30 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
     int count = 0;
     unsigned long len = 0;
     const void *entry = addrs->info_begin + cu_offset;
-    const void *struct_entry = entry + die_offset;
+    const void *type_entry = entry + die_offset;
     count = dwarf_entry_len(entry, &len);
     if (count == 0) {
         return -E_BAD_DWARF;
     }
     entry += count;
 
-    //const void *entry_end = entry + len;
-
-    /*Parse compilation unit header*/
+    /* Parse compilation unit header */
     Dwarf_Half version = get_unaligned(entry, Dwarf_Half);
     entry += sizeof(Dwarf_Half);
     assert(version == 4 || version == 2);
     Dwarf_Off abbrev_offset = get_unaligned(entry, uint32_t);
-    entry += count;
-    const void *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
-    Dwarf_Small address_size = get_unaligned(entry++, Dwarf_Small);
-    assert(address_size == 8);
+    /**/ entry += sizeof(uint32_t);
+    Dwarf_Small address_size = get_unaligned(entry, Dwarf_Small);
+    entry += sizeof(Dwarf_Small);
+    assert(address_size == sizeof(uintptr_t));
 
-    entry = struct_entry;
+    const void *abbrev_entry = addrs->abbrev_begin + abbrev_offset;
+    entry = type_entry;
     uint64_t abbrev_code = 0;
     uint64_t table_abbrev_code = 0;
     count = dwarf_read_uleb128(entry, &abbrev_code);
     entry += count;
+    /* Find abbreviation in abbrev section */
     uint64_t tag = 0, name = 0, form = 0;
     while ((const unsigned char *)abbrev_entry < addrs->abbrev_end) {
         count = dwarf_read_uleb128(abbrev_entry, &table_abbrev_code);
@@ -733,9 +733,7 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
         } while (name != 0 || form != 0);
     }
     unsigned long name_offset = 0;
-    if (tag == DW_TAG_array_type || tag == DW_TAG_enumeration_type) {
-        cprintf("type %lx not supported! ", tag);
-    } else if (tag == DW_TAG_structure_type) {
+    if (tag == DW_TAG_structure_type) {
         char *struct_name = NULL;
         do {
             count = dwarf_read_uleb128(abbrev_entry, &name);
@@ -767,33 +765,16 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
             abbrev_entry += count;
             count = dwarf_read_uleb128(abbrev_entry, &form);
             abbrev_entry += count;
-            switch (name) {
-            case DW_AT_type:
-                switch (form) {
-                case DW_FORM_ref_addr:
-                case DW_FORM_ref_sig8:
-                    count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                    cprintf("DW_FORM_ref_sig8 and DW_FORM_ref_addr are not supported\n");
-                    break;
-                default:
-                    if (form != DW_FORM_ref1 && form != DW_FORM_ref2 &&
-                        form != DW_FORM_ref4 && form != DW_FORM_ref8 && form != DW_FORM_ref_udata) {
-                        cprintf("Unknown form\n");
-                    }
-                    count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
-                    break;
-                }
-                break;
-
-            default:
+            if (name == DW_AT_type) {
+                count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
+            } else {
                 count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                break;
             }
             entry += count;
         } while (name != 0 || form != 0);
 
-        cprintf("typedef of ");
-        if (!type_offset) {
+        cprintf("typedef ");
+        if (type_offset == 0) {
             cprintf("void ");
             return 0;
         }
@@ -807,33 +788,16 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
             abbrev_entry += count;
             count = dwarf_read_uleb128(abbrev_entry, &form);
             abbrev_entry += count;
-            switch (name) {
-            case DW_AT_type:
-                switch (form) {
-                case DW_FORM_ref_addr:
-                case DW_FORM_ref_sig8:
-                    count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                    cprintf("DW_FORM_ref_sig8 and DW_FORM_ref_addr are not supported\n");
-                    break;
-                default:
-                    if (form != DW_FORM_ref1 && form != DW_FORM_ref2 &&
-                        form != DW_FORM_ref4 && form != DW_FORM_ref8 && form != DW_FORM_ref_udata) {
-                        cprintf("Unknown form\n");
-                    }
-                    count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
-                    break;
-                }
-                break;
-
-            default:
+            if (name == DW_AT_type) {
+                count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
+            } else {
                 count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                break;
             }
             entry += count;
         } while (name != 0 || form != 0);
 
         cprintf("const ");
-        if (!type_offset) {
+        if (type_offset == 0) {
             cprintf("void ");
             return 0;
         }
@@ -842,7 +806,6 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
 
     } else if (tag == DW_TAG_base_type) {
         char *type_name = NULL;
-        unsigned encoding = 0;
         do {
             count = dwarf_read_uleb128(abbrev_entry, &name);
             abbrev_entry += count;
@@ -857,9 +820,6 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
                     type_name = (char *)entry;
                     count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                 }
-                break;
-            case DW_AT_encoding:
-                count = dwarf_read_abbrev_entry(entry, form, &encoding, sizeof(encoding), address_size);
                 break;
             default:
                 count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
@@ -878,27 +838,10 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
             abbrev_entry += count;
             count = dwarf_read_uleb128(abbrev_entry, &form);
             abbrev_entry += count;
-            switch (name) {
-            case DW_AT_type:
-                switch (form) {
-                case DW_FORM_ref_addr:
-                case DW_FORM_ref_sig8:
-                    count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                    cprintf("DW_FORM_ref_sig8 and DW_FORM_ref_addr are not supported\n");
-                    break;
-                default:
-                    if (form != DW_FORM_ref1 && form != DW_FORM_ref2 &&
-                        form != DW_FORM_ref4 && form != DW_FORM_ref8 && form != DW_FORM_ref_udata) {
-                        cprintf("Unknown form\n");
-                    }
-                    count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
-                    break;
-                }
-                break;
-
-            default:
+            if (name == DW_AT_type) {
+                count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
+            } else {
                 count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                break;
             }
             entry += count;
         } while (name != 0 || form != 0);
@@ -913,14 +856,14 @@ print_type(struct Dwarf_Addrs *addrs, uint32_t die_offset, Dwarf_Off cu_offset) 
 
         return 0;
     } else {
-        cprintf("Unknown DWARF tag!\n");
+        cprintf("Unsupported DWARF type tag!\n");
         return -1;
     }
     return 0;
 }
 
 int
-ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
+get_ret_type_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
     const int flen = strlen(fname);
     if (flen == 0) {
         return -E_INVAL;
@@ -943,15 +886,17 @@ ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
         entry += count;
         const void *entry_end = entry + len;
 
-        // Parse compilation unit header.
         Dwarf_Off cu_header = offset;
+
+        // Parse compilation unit header.
         Dwarf_Half version = get_unaligned(entry, Dwarf_Half);
         entry += sizeof(Dwarf_Half);
         assert(version == 4 || version == 2);
         Dwarf_Off abbrev_offset = get_unaligned(entry, uint32_t);
-        entry += count;
-        Dwarf_Small address_size = get_unaligned(entry++, Dwarf_Small);
-        assert(address_size == 8);
+        /**/ entry += sizeof(uint32_t);
+        Dwarf_Small address_size = get_unaligned(entry, Dwarf_Small);
+        entry += sizeof(Dwarf_Small);
+        assert(address_size == sizeof(uintptr_t));
 
         // Parse abbrev and info sections
         uint64_t abbrev_code = 0;
@@ -987,40 +932,27 @@ ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
             }
             // parse subprogram DIE
             if (tag == DW_TAG_subprogram) {
-                int ret_void = 1;
-                int found = 0;
+                bool returning_void = true;
+                bool found = false;
                 do {
                     count = dwarf_read_uleb128(curr_abbrev_entry, &name);
                     curr_abbrev_entry += count;
                     count = dwarf_read_uleb128(curr_abbrev_entry, &form);
                     curr_abbrev_entry += count;
                     if (name == DW_AT_type) {
-                        ret_void = 0;
-                        switch (form) {
-                        case DW_FORM_ref_addr:
-                        case DW_FORM_ref_sig8:
-                            count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                            cprintf("DW_FORM_ref_sig8 and DW_FORM_ref_addr are not supported\n");
-                            break;
-                        default:
-                            if (form != DW_FORM_ref1 && form != DW_FORM_ref2 &&
-                                form != DW_FORM_ref4 && form != DW_FORM_ref8 && form != DW_FORM_ref_udata) {
-                                cprintf("Unknown form\n");
-                            }
-                            count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
-                            break;
-                        }
+                        returning_void = false;
+                        count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
                     }
                     if (name == DW_AT_name) {
                         if (form == DW_FORM_strp) {
                             unsigned long str_offset = 0;
                             count = dwarf_read_abbrev_entry(entry, form, &str_offset, sizeof(unsigned long), address_size);
                             if (!strcmp(fname, (const char *)addrs->str_begin + str_offset)) {
-                                found = 1;
+                                found = true;
                             }
                         } else {
                             if (!strcmp(fname, entry)) {
-                                found = 1;
+                                found = true;
                             }
                             count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                         }
@@ -1033,7 +965,7 @@ ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
                 //only continue if function with this name exists
                 if (found) {
                     cprintf("-> (");
-                    if (!ret_void) {
+                    if (returning_void == false) {
                         print_type(addrs, type_offset, cu_header);
                     } else {
                         cprintf("void");
@@ -1058,7 +990,7 @@ ret_by_fname(struct Dwarf_Addrs *addrs, const char *fname) {
 }
 
 int
-arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
+get_arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
     const int flen = strlen(fname);
     if (flen == 0) {
         return -E_INVAL;
@@ -1080,15 +1012,17 @@ arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
         entry += count;
         const void *entry_end = entry + len;
 
-        // Parse compilation unit header.
         Dwarf_Off cu_header = offset;
+        
+        // Parse compilation unit header
         Dwarf_Half version = get_unaligned(entry, Dwarf_Half);
         entry += sizeof(Dwarf_Half);
         assert(version == 4 || version == 2);
         Dwarf_Off abbrev_offset = get_unaligned(entry, uint32_t);
-        entry += count;
-        Dwarf_Small address_size = get_unaligned(entry++, Dwarf_Small);
-        assert(address_size == 8);
+        /**/ entry += sizeof(uint32_t);
+        Dwarf_Small address_size = get_unaligned(entry, Dwarf_Small);
+        entry += sizeof(Dwarf_Small);
+        assert(address_size == sizeof(uintptr_t));
 
         // Parse abbrev and info sections
         uint64_t abbrev_code = 0;
@@ -1153,12 +1087,13 @@ arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
                 if (found) {
                     int no_params = 1;
                     cprintf("(");
-                    while (1) {
+                    while (true) {
                         abbrev_code = 0;
                         table_abbrev_code = 0;
                         count = dwarf_read_uleb128(entry, &abbrev_code);
                         entry += count;
                         abbrev_entry = addrs->abbrev_begin + abbrev_offset;
+                        // find entry with formal parameter tag
                         while ((const unsigned char *)abbrev_entry < addrs->abbrev_end) {
                             count = dwarf_read_uleb128(abbrev_entry, &table_abbrev_code);
                             abbrev_entry += count;
@@ -1189,21 +1124,8 @@ arguments_by_fname(struct Dwarf_Addrs *addrs, char *fname) {
                                 count = dwarf_read_uleb128(abbrev_entry, &form);
                                 abbrev_entry += count;
                                 if (name == DW_AT_type) {
-                                    switch (form) {
-                                    case DW_FORM_ref_addr:
-                                    case DW_FORM_ref_sig8:
-                                        count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
-                                        cprintf("DW_FORM_ref_sig8 and DW_FORM_ref_addr are not supported\n");
-                                        break;
-                                    default:
-                                        if (form != DW_FORM_ref1 && form != DW_FORM_ref2 &&
-                                            form != DW_FORM_ref4 && form != DW_FORM_ref8 && form != DW_FORM_ref_udata) {
-                                            cprintf("Unknown form\n");
-                                        } else
-                                            type_known = true;
-                                        count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
-                                        break;
-                                    }
+                                    type_known = true;
+                                    count = dwarf_read_abbrev_entry(entry, form, &type_offset, sizeof(uint32_t), address_size);
                                 } else {
                                     count = dwarf_read_abbrev_entry(entry, form, NULL, 0, address_size);
                                 }

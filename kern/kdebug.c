@@ -201,7 +201,7 @@ find_function_s(const char *const fname) {
 }
 
 int
-print_arguments(char *fname) {
+get_arguments(char *fname) {
     struct Dwarf_Addrs addrs;
 
     uintptr_t tmp_cr3 = curenv->address_space.cr3;
@@ -210,12 +210,12 @@ print_arguments(char *fname) {
 
     int res;
 
-    res = ret_by_fname(&addrs, fname);
+    res = get_ret_type_by_fname(&addrs, fname);
     if (res) {
         lcr3(tmp_cr3);
         return res;
     }
-    res = arguments_by_fname(&addrs, fname);
+    res = get_arguments_by_fname(&addrs, fname);
     lcr3(tmp_cr3);
     return res;
 }
